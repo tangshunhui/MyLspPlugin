@@ -1,0 +1,117 @@
+#include <jni.h>
+#include <android/log.h>
+#include <unistd.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <dlfcn.h>
+#include "commons.h"
+
+#define LOG_TAG "patch-appsealing-native"
+
+static NativeAPIEntries *gHandler = nullptr;
+
+#define HOOK_SYMBOL(handle, func) \
+    hook_function(handle, #func, (void *)new_##func, (void **)&orig_##func)
+#define HOOK_DEF(ret, func, ...)     \
+    ret (*orig_##func)(__VA_ARGS__); \
+    ret new_##func(__VA_ARGS__)
+
+static inline void hook_function(
+        void *handle,
+        const char *symbol,
+        void *new_func,
+        void **old_func) {
+    void *addr = NULL;
+    if (gHandler) {
+        addr = gHandler->symbolResolverFunc(NULL, symbol);
+    } else {
+        addr = dlsym(handle, symbol);
+    }
+    if (addr == nullptr) {
+        LOGE("Not found symbol : %s", symbol);
+        return;
+    }
+    if (gHandler) {
+        gHandler->hookFunc(addr, new_func, old_func);
+    }
+}
+
+HOOK_DEF(int, __system_property_get, const char *key, const char *value) {
+    Dl_info info;
+    memset(&info, 0, sizeof(info));
+    dladdr((void *)value, &info);
+
+    LOGD("__system_property_get() key = %s called from: %s (%s)", key, info.dli_fname, info.dli_sname);
+    if (strstr(key, "supolicy.loaded")) {
+        LOGD("__system_property_get() block");
+        sleep(31536000);
+    }
+
+    return orig___system_property_get(key, value);
+}
+
+extern "C" [[gnu::visibility("default")]] [[gnu::used]] NativeOnModuleLoaded native_init(
+        const NativeAPIEntries *entries) {
+    LOGI("native_init() entries %p", entries);
+    gHandler = const_cast<NativeAPIEntries *>(entries);
+
+    LOGI("native_init() finished!");
+    return NULL;
+}
+
+jboolean demo_native_init(JNIEnv *env, jclass clazz, jint flags) {
+    LOGI("demo_native_init() flags = 0x%x, gHandler = %p", flags, gHandler);
+    return JNI_TRUE;
+}
+
+jboolean demo_native_deInit(JNIEnv *env, jclass clazz, jint flags) {
+    LOGI("demo_native_deInit() flags = 0x%x", flags);
+    return JNI_TRUE;
+}
+
+static JNINativeMethod jniMain[] = {
+        {
+                "initNative",
+                "(I)Z",
+                (void *) demo_native_init
+        },
+        {
+                "deInitNative",
+                "(I)Z",
+                (void *) demo_native_deInit
+        }
+};
+
+static int registerNativeMethods(JNIEnv *env, const char *className, JNINativeMethod *jniMethods,
+                                 int methods) {
+    jclass clazz = env->FindClass(className);
+    if (clazz == NULL) {
+        LOGE("registerNativeMethods() error!");
+        return 0;
+    }
+    return env->RegisterNatives(clazz, jniMethods, methods) >= 0;
+}
+
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
+
+    JNIEnv *env = nullptr;
+    if (vm->GetEnv((void **) &env, JNI_VERSION_1_6) != JNI_OK) {
+        LOGE("JNI Loaded error！");
+        return JNI_ERR;
+    }
+
+    int jniMethodSize = sizeof(JNINativeMethod);
+    if (!registerNativeMethods(env, "com/android/hp/Entry", jniMain,
+                               sizeof(jniMain) / jniMethodSize)) {
+        LOGE("JNI Loaded register main error!");
+        return JNI_ERR;
+    }
+
+    LOGW("JNI Loaded");
+    return JNI_VERSION_1_6;
+}
+
+JNIEXPORT void JNI_OnUnload(JavaVM *vm, void *reserved) {
+    LOGI("JNI_OnUnload()");
+}
+

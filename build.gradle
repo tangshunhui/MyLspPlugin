@@ -1,0 +1,62 @@
+apply plugin: 'com.android.application'
+
+android {
+
+    namespace = "com.android.plugin.demo"
+
+    compileSdkVersion 34
+
+    defaultConfig {
+        applicationId "com.android.plugin.demo"
+        minSdkVersion 27
+        targetSdkVersion 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile "src/main/AndroidManifest.xml"
+        }
+    }
+
+    signingConfigs {
+        release {
+            storeFile file("D:\\tsh.jks")
+            storePassword "12345678"
+            keyAlias "test"
+            keyPassword "12345678"
+        }
+    }
+
+    buildTypes {
+        debug {
+            externalNativeBuild {
+                cmake {
+                    cppFlags "-Wl,--build-id -g"
+                }
+            }
+        }
+        release {
+            signingConfig signingConfigs.release
+            externalNativeBuild {
+                cmake {
+                    cppFlags "-fvisibility=hidden -fvisibility-inlines-hidden -O2 -s -Wno-unused-value"
+                    cFlags "-fvisibility=hidden -fvisibility-inlines-hidden -O2 -s -Wno-unused-value"
+                }
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+        }
+    }
+}
+
+
+dependencies {
+    api(libs.libxposed.api)
+    compileOnly files('libs/XposedBridgeAPI-89.jar')
+}
