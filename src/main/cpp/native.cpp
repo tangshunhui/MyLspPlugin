@@ -44,29 +44,11 @@ static inline void hook_function(
     }
 }
 
-HOOK_DEF(void, __system_property_foreach, void *callback, void *cookie) {
-    Dl_info info;
-    memset(&info, 0, sizeof(info));
-    dladdr((void *)callback, &info);
-    // LOG("new___system_property_foreach() called from: %s (%s)", info.dli_fname, info.dli_sname);
-    if (strstr(info.dli_fname, "libNetHTProtect.so") || strstr(info.dli_fname, "liblfqfd.so")) {
-        LOG("Block __system_property_foreach");
-    } else {
-        orig___system_property_foreach(callback, cookie);
-    }
-}
-
 HOOK_DEF(int, __system_property_get, const char *key, const char *value) {
     Dl_info info;
     memset(&info, 0, sizeof(info));
     dladdr((void *)value, &info);
-
     LOG("__system_property_get() key = %s called from: %s (%s)", key, info.dli_fname, info.dli_sname);
-    if (strstr(key, "supolicy.loaded")) {
-        LOG("Block __system_property_get()");
-        sleep(31536000);
-    }
-
     return orig___system_property_get(key, value);
 }
 
@@ -74,13 +56,7 @@ HOOK_DEF(int, __system_property_find, const char *key) {
     Dl_info info;
     memset(&info, 0, sizeof(info));
     dladdr((void *)key, &info);
-
     LOG("__system_property_find() key = %s called from: %s (%s)", key, info.dli_fname, info.dli_sname);
-    if (strstr(key, "supolicy.loaded")) {
-        LOG("Block __system_property_find()");
-        sleep(31536000);
-    }
-
     return orig___system_property_find(key);
 }
 
@@ -216,7 +192,6 @@ NativeOnModuleLoaded native_init(const NativeAPIEntries *entries) {
     // HOOK_SYMBOL(nullptr, kill);
     // HOOK_SYMBOL(nullptr, _exit);
 
-    // HOOK_SYMBOL(nullptr, __system_property_foreach);
     // HOOK_SYMBOL(nullptr, __ptrace);
 
     // HOOK_SYMBOL(nullptr, __system_property_get);
@@ -230,19 +205,19 @@ NativeOnModuleLoaded native_init(const NativeAPIEntries *entries) {
 }
 
 
-jboolean demo_native_init(JNIEnv *env, jclass clazz, jint flags) {
+jboolean entry_native_init(JNIEnv *env, jclass clazz, jint flags) {
     LOG("demo_native_init() flags = 0x%x, gHandler = %p", flags, gHandler);
     return JNI_TRUE;
 }
 
-jboolean demo_native_deInit(JNIEnv *env, jclass clazz, jint flags) {
+jboolean entry_native_deInit(JNIEnv *env, jclass clazz, jint flags) {
     LOG("demo_native_deInit() flags = 0x%x", flags);
     return JNI_TRUE;
 }
 
 static JNINativeMethod jniMain[] = {
-        {"initNative", "(I)Z", (void *)demo_native_init},
-        {"deInitNative", "(I)Z", (void *)demo_native_deInit}};
+        {"initNative", "(I)Z", (void *)entry_native_init},
+        {"deInitNative", "(I)Z", (void *)entry_native_deInit}};
 
 
 static int registerNativeMethods(
