@@ -43,6 +43,8 @@ public class Entry {
             hookXposedDetecte(appContext, cl);
         } else if (pkgName.contains("com.finalwire.aida64")) {
             testAida64(cl);
+        } else if (pkgName.equals("com.rxznbbcc.aiqu")) {
+            testAnqu(cl);
         }
 
         //File dir = appContext.getDir("cache", Context.MODE_PRIVATE);
@@ -113,6 +115,20 @@ public class Entry {
         } catch (Exception e) {
             Log.w(TAG, "hook hookXposedDetecte failed", e);
         }
+    }
+
+    public static void testAnqu(ClassLoader classLoader) {
+        Log.i(TAG, "testAnqu");
+        XposedHelpers.findAndHookMethod("aiqu.g.k", classLoader, "n", java.lang.String.class, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                Log.i(TAG, "doInBackground --> " + param.args[0]);
+            }
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                super.afterHookedMethod(param);
+            }
+        });
     }
 
     private static native boolean initNative(int flags);
